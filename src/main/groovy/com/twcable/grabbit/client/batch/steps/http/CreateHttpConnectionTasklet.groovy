@@ -30,6 +30,12 @@ import org.springframework.batch.core.step.tasklet.Tasklet
 import org.springframework.batch.repeat.RepeatStatus
 
 import javax.annotation.Nonnull
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSession
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
 
 import static javax.servlet.http.HttpServletResponse.SC_OK
@@ -110,11 +116,38 @@ class CreateHttpConnectionTasklet implements Tasklet {
 
 
     private OkHttpClient getNewHttpClient() {
+        HostnameVerifier allHostnameVerifier = new HostnameVerifier() {
+            @Override
+            boolean verify(String s, SSLSession sslSession) {
+                return true
+            }
+        }
+
+        X509TrustManager x509TrustManager = new X509TrustManager() {
+            X509Certificate[] getAcceptedIssuers() {
+                return new X509Certificate[0]
+            }
+
+            void checkServerTrusted(X509Certificate[] certs, String authType) {
+            }
+
+            void checkClientTrusted(X509Certificate[] certs, String authType) {
+            }
+        }
+
+        TrustManager[] trustAllCerts = [
+                x509TrustManager
+        ]
+
+        SSLContext sslContext = SSLContext.getInstance("SSL")
+        sslContext.init(null, trustAllCerts, null)
         return new HttpClientBuilder()
-                .connectTimeout(1L, TimeUnit.MINUTES)
-                .readTimeout(1L, TimeUnit.MINUTES)
-                .writeTimeout(1L, TimeUnit.MINUTES)
+                .connectTimeout(3L, TimeUnit.MINUTES)
+                .readTimeout(3L, TimeUnit.MINUTES)
+                .writeTimeout(3L, TimeUnit.MINUTES)
                 .retryOnConnectionFailure(true)
+                .hostnameVerifier(allHostnameVerifier)
+                .sslSocketFactory(sslContext.getSocketFactory(), x509TrustManager)
                 .build()
     }
 
